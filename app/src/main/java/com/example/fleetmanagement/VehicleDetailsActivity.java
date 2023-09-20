@@ -23,6 +23,8 @@ import com.anychart.data.Set;
 import com.anychart.enums.Anchor;
 import com.anychart.enums.MarkerType;
 import com.anychart.enums.TooltipPositionMode;
+import com.example.fleetmanagement.DB.sensor.AccelerometerDao;
+import com.example.fleetmanagement.DB.sensor.AccelerometerData;
 import com.example.fleetmanagement.DB.sensor.TemperatureDao;
 import com.example.fleetmanagement.DB.sensor.TemperatureData;
 import com.example.fleetmanagement.DB.vehicle.Vehicle;
@@ -132,7 +134,68 @@ public class VehicleDetailsActivity extends AppCompatActivity {
 
 
     private void analyseAccelerometerData() {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        // Initialising the chart view with the AnyChart variable
+        AnyChartView magChartView = findViewById(R.id.magChart);
+        // Adding the progress bar for loading the chart
+        magChartView.setProgressBar(findViewById(R.id.progress_bar));
+        Cartesian magLineChart = AnyChart.line();
+        magLineChart.animation(true); // Setting Animation for the chart tempLineChart.padding(10d, 20d, 5d, 20d);
 
+        // Setting the tap on value bar with X-value (Cross between the temperature and corresponding time)
+        magLineChart.crosshair().enabled(true);
+        magLineChart.crosshair().yLabel(true);
+        // TODO ystroke.yStroke((Stroke) null, null, null, (String) null, (String) null);
+        // Setting a point for tapping on the chart.
+        magLineChart.tooltip().positionMode(TooltipPositionMode.POINT);
+
+        magLineChart.title("Magnitude analysis over the time.");
+        magLineChart.yAxis(0).title("Magnitude)");
+        magLineChart.xAxis(0).title("Timestamp");
+        magLineChart.xAxis(0).labels().padding(5d, 5d, 5d, 5d);
+        magLineChart.legend().enabled(true);
+        magLineChart.legend().fontSize(13d);
+        magLineChart.legend().padding(0d, 0d, 10d, 0d);
+
+        // Initialising data for the chart
+        List<DataEntry> seriesData = new ArrayList<>();
+        Set set = Set.instantiate();
+        // Initiating AnyChart set to synch the custom data with AnyChart data
+        Mapping series1Mapping = set.mapAs("{ x: 'x', value: 'value' }");
+        //Map for mapping values in X-Axis (time) with Y-axix (magnitude)
+
+        Line series1 = magLineChart.line(series1Mapping);
+        series1.name(tvVehicleName.getText().toString());
+        series1.hovered().markers().enabled(true);
+        series1.hovered().markers().type(MarkerType.CIRCLE).size(4d);
+        series1.tooltip().position("right").anchor(Anchor.LEFT_CENTER).offsetX(5d).offsetY(5d);
+
+        magChartView.setChart(magLineChart); // adding the chart to the chart view
+
+        AccelerometerDao accelerometerDao = MyApp.getAppDatabase().accelerometerDao();
+        LiveData<List<AccelerometerData>> magLiveData = accelerometerDao.getAllAccelerometerData();
+        magLiveData.observe(this, magDataList -> {
+            // Handle the list of temparature here
+            for (AccelerometerData accelerometerData : magDataList) {
+                Date date = new Date(accelerometerData.getTimeStamp());
+                // converting our data into AnyChart customdata and adding them to seriesData
+                seriesData.add(new CustomDataEntry(dateFormat.format(date), accelerometerData.getMagnitude()));
+            }
+            // Setting the series data into the set method of AnyChart library.
+            set.data(seriesData);
+        });
+
+
+        magLiveData.observe(this, accelerometerDataList -> {
+            // Handle the list of temparature here
+            for (AccelerometerData accelerometerData : accelerometerDataList) {
+                Date date = new Date(accelerometerData.getTimeStamp());
+                // converting our data into AnyChart customdata and adding them to seriesData
+                seriesData.add(new CustomDataEntry(dateFormat.format(date), accelerometerData.getMagnitude()));
+            }
+            // Setting the series data into the set method of AnyChart library.
+            set.data(seriesData);
+        });
     }
 
     private void populatingVehicleDetails() {
